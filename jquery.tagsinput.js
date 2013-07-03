@@ -85,8 +85,8 @@
 
 				value = jQuery.trim(value);
 
-				if (options.unique) {
-					var skipTag = $(this).tagExist(value);
+				if (options.unique || tagslist.length+1 > options.maxTags) {
+					var skipTag = $(this).tagExist(value) || tagslist.length+1 > options.maxTags;
 					if(skipTag == true) {
 					    //Marks fake input as not_valid to let styling it
     				    $('#'+id+'_tag').addClass('not_valid');
@@ -103,11 +103,18 @@
                             title : 'Removing tag',
                             text  : 'x'
                         }).click(function () {
-                            return $('#' + id).removeTag(escape(value));
+                        	if (tagslist.length-1 < options.maxTags) {
+														$('#'+id+'_addTag').show();
+													}
+                            return $('#' + id).removeTag(escape(value),options);
                         })
                     ).insertBefore('#' + id + '_addTag');
 
 					tagslist.push(value);
+
+					if (tagslist.length == options.maxTags) {
+					  $('#'+id+'_addTag').hide();
+					}
 
 					$('#'+id+'_tag').val('');
 					if (options.focus) {
@@ -135,7 +142,7 @@
 			return false;
 		};
 
-	$.fn.removeTag = function(value) {
+	$.fn.removeTag = function(value,settings) {
 			value = unescape(value);
 			this.each(function() {
 				var id = $(this).attr('id');
@@ -150,7 +157,7 @@
 					}
 				}
 
-				$.fn.tagsInput.importTags(this,str);
+				$.fn.tagsInput.importTags(this,str,settings);
 
 				if (tags_callbacks[id] && tags_callbacks[id]['onRemoveTag']) {
 					var f = tags_callbacks[id]['onRemoveTag'];
@@ -233,7 +240,7 @@
 			$(data.holder).css('height','100%');
 
 			if ($(data.real_input).val()!='') {
-				$.fn.tagsInput.importTags($(data.real_input),$(data.real_input).val());
+				$.fn.tagsInput.importTags($(data.real_input),$(data.real_input).val(),settings);
 			}
 			if (settings.interactive) {
 				$(data.fake_input).val($(data.fake_input).attr('data-default'));
@@ -261,13 +268,13 @@
 						$(data.fake_input).autocomplete(settings.autocomplete_url, settings.autocomplete);
 						$(data.fake_input).bind('result',data,function(event,data,formatted) {
 							if (data) {
-								$('#'+id).addTag(data[0] + "",{focus:true,unique:(settings.unique)});
+								$('#'+id).addTag(data[0] + "",{focus:true,unique:(settings.unique),maxTags:(settings.maxTags)});
 							}
 					  	});
 					} else if (jQuery.ui.autocomplete !== undefined) {
 						$(data.fake_input).autocomplete(autocomplete_options);
 						$(data.fake_input).bind('autocompleteselect',data,function(event,ui) {
-							$(event.data.real_input).addTag(ui.item.value,{focus:true,unique:(settings.unique)});
+							$(event.data.real_input).addTag(ui.item.value,{focus:true,unique:(settings.unique),maxTags:(settings.maxTags)});
 							return false;
 						});
 					}
@@ -280,7 +287,7 @@
 							var d = $(this).attr('data-default');
 							if ($(event.data.fake_input).val()!='' && $(event.data.fake_input).val()!=d) {
 								if( (event.data.minChars <= $(event.data.fake_input).val().length) && (!event.data.maxChars || (event.data.maxChars >= $(event.data.fake_input).val().length)) )
-									$(event.data.real_input).addTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique)});
+									$(event.data.real_input).addTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique),maxTags:(settings.maxTags)});
 							} else {
 								$(event.data.fake_input).val($(event.data.fake_input).attr('data-default'));
 								$(event.data.fake_input).css('color',settings.placeholderColor);
@@ -294,7 +301,7 @@
 					if (event.which==event.data.delimiter.charCodeAt(0) || event.which==13 ) {
 					    event.preventDefault();
 						if( (event.data.minChars <= $(event.data.fake_input).val().length) && (!event.data.maxChars || (event.data.maxChars >= $(event.data.fake_input).val().length)) )
-							$(event.data.real_input).addTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique)});
+						  $(event.data.real_input).addTag($(event.data.fake_input).val(),{focus:true,unique:(settings.unique),maxTags:(settings.maxTags)});
 					  	$(event.data.fake_input).resetAutosize(settings);
 						return false;
 					} else if (event.data.autosize) {
@@ -311,7 +318,7 @@
 						 var last_tag = $(this).closest('.tagsinput').find('.tag:last').text();
 						 var id = $(this).attr('id').replace(/_tag$/, '');
 						 last_tag = last_tag.replace(/[\s]+x$/, '');
-						 $('#' + id).removeTag(escape(last_tag));
+						 $('#' + id).removeTag(escape(last_tag),settings);
 						 $(this).trigger('focus');
 					}
 				});
@@ -337,12 +344,12 @@
 		$(obj).val(tagslist.join(delimiter[id]));
 	};
 
-	$.fn.tagsInput.importTags = function(obj,val) {
+	$.fn.tagsInput.importTags = function(obj,val,settings) {
 		$(obj).val('');
 		var id = $(obj).attr('id');
 		var tags = val.split(delimiter[id]);
 		for (i=0; i<tags.length; i++) {
-			$(obj).addTag(tags[i],{focus:false,callback:false});
+			$(obj).addTag(tags[i],{focus:false,callback:false,maxTags:(settings.maxTags)});
 		}
 		if(tags_callbacks[id] && tags_callbacks[id]['onChange'])
 		{
